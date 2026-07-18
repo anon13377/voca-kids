@@ -244,6 +244,15 @@
                     animation:humpulse 1s ease-in-out infinite;}
   @keyframes humpulse{0%,100%{box-shadow:0 4px 0 rgba(0,0,0,.35);}
                       50%{box-shadow:0 4px 0 rgba(0,0,0,.35), 0 0 0 6px rgba(239,71,111,.35);}}
+  #quickBar{display:flex; flex-wrap:wrap; justify-content:center; align-items:center;
+            gap:8px; margin-top:10px; padding:8px 10px; border-radius:16px;
+            background:rgba(255,255,255,.06);}
+  #quickBar .qlabel{font-weight:700; opacity:.8; margin-right:2px;}
+  #quickRecBtn.rec-on{background:var(--pink,#ef476f); color:#fff;
+                      animation:humpulse 1s ease-in-out infinite;}
+  #pauseMicBtn.paused{background:var(--accent); color:#fff;}
+  #quickPlayBtn:disabled{opacity:.4; cursor:not-allowed;}
+  #quickPlayBtn.playing{background:var(--good,#06d6a0); color:#04231a;}
   #humClips{display:flex; flex-direction:column; gap:6px;}
   .hum-clip{display:flex; align-items:center; gap:8px; padding:6px 8px; border-radius:12px;
             background:rgba(255,255,255,.06);}
@@ -408,6 +417,12 @@
       <button class="btn" id="achieveBtn" aria-pressed="false" aria-controls="achievePanel">🏆 <span id="achieveBadge">Levels</span></button>
       <button class="btn" id="settingsBtn" aria-pressed="false" aria-controls="settings">⚙️ Options</button>
       <button class="btn" id="helpBtn" aria-pressed="false" aria-controls="helpPanel">❓ Help</button>
+    </div>
+    <div id="quickBar" role="group" aria-label="Quick recorder and microphone pause">
+      <span class="qlabel">🎬 Snippet:</span>
+      <button class="btn" id="quickRecBtn" aria-pressed="false" title="Record a snippet of what you play">⏺ Record</button>
+      <button class="btn" id="quickPlayBtn" title="Play back your snippet" disabled>▶️ Play</button>
+      <button class="btn" id="pauseMicBtn" aria-pressed="false" title="Pause the always-listening microphone">⏸️ Pause Mic</button>
     </div>
   </div>
   <div id="achievePanel" role="group" aria-label="Levels and achievements">
@@ -1968,6 +1983,146 @@ document.getElementById("humNewBtn").addEventListener("click", () => {
 loadHumClips();
 renderHumClips();
 
+// ---------- Global mic pause + quick snippet recorder ----------
+// A lightweight, always-visible recorder that works in ANY mode. It captures
+// the live pitch stream (same debounce as Hum Studio) into ONE snippet you can
+// replay through the current instrument. Separate from Hum Studio's clip list —
+// this is the one-button "record this, play it back" the whole app shares.
+let micPaused = false;
+const quickRec = {
+  recording: false, notes: [], open: null,
+  holdMidi: -1, holdFrames: 0, gapFrames: 0, recStartMs: 0,
+  clip: null, replaying: false, replayTimer: null,
+};
+
+function quickCapture(midiFloat, voiced, nowMs) {
+  if (!quickRec.recording) return;
+  const rel = nowMs - quickRec.recStartMs;
+  if (voiced) {
+    const m = Math.round(midiFloat);
+    quickRec.gapFrames = 0;
+    if (m === quickRec.holdMidi) quickRec.holdFrames++;
+    else { quickRec.holdMidi = m; quickRec.holdFrames = 1; }
+    if (quickRec.holdFrames === HUM_HOLD_NEEDED && (!quickRec.open || quickRec.open.midi !== m)) {
+      quickRec.open = { midi: m, startMs: Math.round(rel), durMs: 0 };
+      quickRec.notes.push(quickRec.open);
+    }
+    if (quickRec.open && quickRec.open.midi === m) {
+      quickRec.open.durMs = Math.max(0, Math.round(rel - quickRec.open.startMs));
+    }
+  } else {
+    quickRec.holdMidi = -1; quickRec.holdFrames = 0;
+    if (++quickRec.gapFrames > HUM_GAP_RESET) quickRec.open = null;
+  }
+}
+
+function updateQuickPlayBtn() {
+  const btn = document.getElementById("quickPlayBtn");
+  btn.disabled = !(quickRec.clip && quickRec.clip.notes.length) || quickRec.recording;
+  btn.classList.toggle("playing", quickRec.replaying);
+  btn.textContent = quickRec.replaying ? "⏹ Stop" : "▶️ Play";
+}
+
+function startQuickRec() {
+  if (micPaused) setMicPaused(false);        // can't record a paused mic
+  stopQuickReplay();
+  quickRec.recording = true;
+  quickRec.recStartMs = performance.now();
+  quickRec.notes = []; quickRec.open = null;
+  quickRec.holdMidi = -1; quickRec.holdFrames = 0; quickRec.gapFrames = 0;
+  const btn = document.getElementById("quickRecBtn");
+  btn.classList.add("rec-on"); btn.setAttribute("aria-pressed", "true");
+  btn.textContent = "⏹ Stop";
+  updateQuickPlayBtn();
+  announce("🔴 Recording a snippet — sing, hum or play!");
+  caption("🔴 Recording…");
+}
+
+function stopQuickRec() {
+  if (!quickRec.recording) return;
+  quickRec.recording = false;
+  const btn = document.getElementById("quickRecBtn");
+  btn.classList.remove("rec-on"); btn.setAttribute("aria-pressed", "false");
+  btn.textContent = "⏺ Record";
+  if (voiceOn) { instruments[currentInst].triggerRelease(); voiceOn = false; smoothedFreq = 0; }
+  const notes = quickRec.notes.filter((n) => n.durMs >= 0);
+  if (notes.length) {
+    let durMs = 0;
+    for (const n of notes) durMs = Math.max(durMs, n.startMs + n.durMs);
+    quickRec.clip = { notes, durMs };
+    announce("💾 Snippet saved — press Play to hear it!");
+  } else {
+    announce("🤫 Nothing recorded — try singing a little louder!");
+  }
+  updateQuickPlayBtn();
+}
+
+function stopQuickReplay() {
+  if (quickRec.replayTimer) { clearTimeout(quickRec.replayTimer); quickRec.replayTimer = null; }
+  if (quickRec.replaying) {
+    instruments[currentInst].triggerRelease();
+    quickRec.replaying = false;
+  }
+  updateQuickPlayBtn();
+}
+
+// Replay the snippet through the CURRENTLY selected instrument — same driver
+// contract as Hum Studio's replay (attack/rampTo/release at absolute Tone times).
+function playQuickRec() {
+  const clip = quickRec.clip;
+  if (!clip || !clip.notes.length || quickRec.recording) return;
+  stopQuickReplay();
+  if (voiceOn) { instruments[currentInst].triggerRelease(); voiceOn = false; smoothedFreq = 0; }
+  const synth = instruments[currentInst];
+  quickRec.replaying = true;
+  updateQuickPlayBtn();
+  announce("▶️ Playing your snippet");
+  const base = Tone.now() + 0.06;
+  let prevEnd = -1;
+  clip.notes.forEach((n) => {
+    const startT = base + n.startMs / 1000;
+    const dur = Math.max(0.14, n.durMs / 1000);
+    const freq = midiToFreq(n.midi);
+    if (prevEnd >= 0 && startT - prevEnd < 0.04) synth.frequency.rampTo(freq, 0.03, startT);
+    else synth.triggerAttack(freq, startT);
+    synth.triggerRelease(startT + dur);
+    Tone.Draw.schedule(() => { if (quickRec.replaying) caption("🔊 " + noteLabel(n.midi)); }, startT);
+    prevEnd = startT + dur;
+  });
+  quickRec.replayTimer = setTimeout(() => {
+    quickRec.replaying = false; quickRec.replayTimer = null;
+    updateQuickPlayBtn();
+  }, clip.durMs + 400);
+}
+
+// Global "always listening" pause — freezes all mic analysis in every mode.
+function setMicPaused(on) {
+  micPaused = on;
+  const btn = document.getElementById("pauseMicBtn");
+  btn.classList.toggle("paused", on);
+  btn.setAttribute("aria-pressed", on);
+  btn.textContent = on ? "▶️ Resume Mic" : "⏸️ Pause Mic";
+  if (on) {
+    if (quickRec.recording) stopQuickRec();      // save whatever was captured
+    if (voiceOn) { instruments[currentInst].triggerRelease(); voiceOn = false; smoothedFreq = 0; }
+    noteNameEl.textContent = "⏸";
+    freqLabelEl.textContent = "mic paused";
+    announce("⏸️ Microphone paused — I'm not listening now.");
+    caption("⏸️ Mic paused");
+  } else {
+    announce("🎤 Microphone back on — sing away!");
+    caption("🎤 Listening");
+  }
+}
+
+document.getElementById("quickRecBtn").addEventListener("click", () => {
+  if (quickRec.recording) stopQuickRec(); else startQuickRec();
+});
+document.getElementById("quickPlayBtn").addEventListener("click", () => {
+  if (quickRec.replaying) stopQuickReplay(); else playQuickRec();
+});
+document.getElementById("pauseMicBtn").addEventListener("click", () => setMicPaused(!micPaused));
+
 // ---------- Main loop ----------
 const noteNameEl = document.getElementById("noteName");
 const freqLabelEl = document.getElementById("freqLabel");
@@ -1986,6 +2141,11 @@ function loop() {
   perfTick(nowMs);
   const dtMs = lastLoopMs ? nowMs - lastLoopMs : 0;
   lastLoopMs = nowMs;
+
+  // Global "always listening" pause: freeze all mic analysis but keep replay
+  // (quick snippet / hum) audible, since those are Transport/Tone-scheduled.
+  if (micPaused) { drawLadder(-1, false); return; }
+
   analyser.getFloatTimeDomainData(pitchBuf);
   const sr = Tone.getContext().sampleRate;
 
@@ -2068,6 +2228,8 @@ function loop() {
 
   // VOCA-HUMSTUDIO: while recording, capture the pitch stream as a note sequence
   if (humStudio.on) humCapture(midiFloat, voiced, nowMs);
+  // Global quick-snippet recorder captures in ANY mode
+  quickCapture(midiFloat, voiced, nowMs);
 
   // Suppress the live mic→synth driver when another source owns it:
   //  - duet phrase playback is driven by playDuetPhrase()
@@ -2075,7 +2237,8 @@ function loop() {
   //    stays silent and doesn't fight clip replay)
   const suppressDrive =
     (duet.on && (duet.phase === "playback" || duet.phase === "round-end")) ||
-    (humStudio.on && !humStudio.recording);
+    (humStudio.on && !humStudio.recording) ||
+    quickRec.replaying;   // let the snippet replay sound without the live voice fighting it
   if (!suppressDrive) {
     driveSynth(freq, voiced);
   }
