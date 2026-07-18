@@ -229,6 +229,49 @@
             font-weight:bold; z-index:20; transition:opacity .3s, transform .3s; pointer-events:none;}
   #levelToast.show{opacity:1; transform:translate(-50%,0);}
 
+  /* VOCA-HUMSTUDIO: tape-recorder hum library — floating popover over the ladder
+     (same position:absolute pattern as #settings/#achievePanel per the A11Y gotcha) */
+  #humPanel{display:none; flex-direction:column; gap:10px; align-items:stretch;
+            background:var(--panel); border-radius:16px; padding:14px 18px;
+            box-shadow:0 4px 0 rgba(0,0,0,.3), 0 0 0 3px rgba(255,255,255,.12), 0 10px 30px rgba(0,0,0,.5);
+            width:min(90vw,360px); max-height:80vh; overflow-y:auto;
+            position:absolute; z-index:6; left:50%; top:50%; transform:translate(-50%,-50%);}
+  #humPanel.on{display:flex;}
+  .hum-head{font-size:18px; font-weight:bold; text-align:center;}
+  .hum-hint{font-size:12px; opacity:.8; text-align:center; margin:0;}
+  .hum-controls{display:flex; gap:8px; justify-content:center;}
+  #humRecBtn.rec-on{background:var(--pink,#ef476f); color:#fff;
+                    animation:humpulse 1s ease-in-out infinite;}
+  @keyframes humpulse{0%,100%{box-shadow:0 4px 0 rgba(0,0,0,.35);}
+                      50%{box-shadow:0 4px 0 rgba(0,0,0,.35), 0 0 0 6px rgba(239,71,111,.35);}}
+  #humClips{display:flex; flex-direction:column; gap:6px;}
+  .hum-clip{display:flex; align-items:center; gap:8px; padding:6px 8px; border-radius:12px;
+            background:rgba(255,255,255,.06);}
+  .hum-clip .hc-name{font-weight:bold; font-size:14px;}
+  .hum-clip .hc-len{font-size:11px; opacity:.7; margin-left:auto;}
+  .hum-clip .btn{padding:6px 10px; font-size:16px; box-shadow:0 2px 0 rgba(0,0,0,.35);}
+  .hum-clip.playing{border:2px solid var(--accent); background:rgba(255,209,102,.12);}
+  .hum-empty{font-size:13px; opacity:.7; text-align:center; padding:6px;}
+
+  /* VOCA-HELP: in-app directions popover (same floating pattern as #settings/#achievePanel
+     per the A11Y layout gotcha — never in-flow, or it crushes the ladder canvas) */
+  #helpPanel{display:none; flex-direction:column; gap:10px; align-items:stretch;
+            background:var(--panel); border-radius:16px; padding:14px 18px;
+            box-shadow:0 4px 0 rgba(0,0,0,.3), 0 0 0 3px rgba(255,255,255,.12), 0 10px 30px rgba(0,0,0,.5);
+            width:min(92vw,560px); max-height:82vh; overflow-y:auto;
+            position:absolute; z-index:7; left:50%; top:50%; transform:translate(-50%,-50%);}
+  #helpPanel.on{display:flex;}
+  #helpPanel .help-head{font-size:20px; font-weight:bold; text-align:center;}
+  #helpPanel .help-intro{font-size:14px; text-align:center; opacity:.9; margin:0;}
+  #helpPanel h3{font-size:14px; margin:6px 0 2px; opacity:.85; border-bottom:2px solid rgba(255,255,255,.12); padding-bottom:3px;}
+  #helpPanel .legend{display:flex; flex-direction:column; gap:6px;}
+  #helpPanel .leg-item{display:flex; gap:10px; align-items:flex-start; font-size:13px; line-height:1.35;}
+  #helpPanel .leg-icon{flex:0 0 auto; min-width:44px; text-align:center; font-weight:bold;}
+  #helpPanel .leg-txt{flex:1;}
+  #helpPanel .grownup{font-size:12px; opacity:.85; text-align:center; background:rgba(255,255,255,.06);
+            border-radius:12px; padding:8px 10px; margin-top:4px;}
+  #helpPanel .help-close{align-self:center; margin-top:4px;}
+
   /* Responsive instrument grid for smaller screens */
   @media (max-width: 600px) {
     #instPicker{grid-template-columns:repeat(4, 1fr); max-width:100%;}
@@ -361,8 +404,10 @@
       <button class="btn" id="beatBtn" aria-pressed="false">🥁 Beatbox</button>
       <button class="btn" id="loopBtn" aria-pressed="false">🔁 Looper</button>
       <button class="btn" id="duetBtn" aria-pressed="false">🎤🎤 Duet</button>
+      <button class="btn" id="humBtn" aria-pressed="false" aria-controls="humPanel">🎙️ Hum Studio</button>
       <button class="btn" id="achieveBtn" aria-pressed="false" aria-controls="achievePanel">🏆 <span id="achieveBadge">Levels</span></button>
       <button class="btn" id="settingsBtn" aria-pressed="false" aria-controls="settings">⚙️ Options</button>
+      <button class="btn" id="helpBtn" aria-pressed="false" aria-controls="helpPanel">❓ Help</button>
     </div>
   </div>
   <div id="achievePanel" role="group" aria-label="Levels and achievements">
@@ -381,6 +426,45 @@
     </div>
   </div>
   <div id="levelToast" aria-hidden="true"></div>
+  <!-- VOCA-HUMSTUDIO: record hums as note sequences, pile them up, replay on any instrument -->
+  <div id="humPanel" role="group" aria-label="Hum Studio — record and replay your tunes">
+    <div class="hum-head">🎙️ Hum Studio</div>
+    <p class="hum-hint">Press ⏺ Record and hum a tune. Press ⏹ Stop to save it, then ▶️ replay it on any instrument!</p>
+    <div class="hum-controls">
+      <button class="btn" id="humRecBtn" aria-pressed="false">⏺ Record</button>
+      <button class="btn" id="humNewBtn">➕ New</button>
+    </div>
+    <div id="humClips" role="list" aria-label="Saved hums"></div>
+    <div id="humEmpty" class="hum-empty">No hums yet — record your first one! 🎶</div>
+  </div>
+  <div id="helpPanel" role="group" aria-label="How to play Hum-a-Tune — directions">
+    <div class="help-head">❓ How to Play</div>
+    <p class="help-intro">Hum, sing, or whistle into the mic — your voice becomes music! Watch the bird climb the note ladder, then try a game or make beats.</p>
+
+    <h3>🎵 Instruments</h3>
+    <div class="legend">
+      <div class="leg-item"><span class="leg-icon">🎹🪈🎻🎺</span><span class="leg-txt">Tap an instrument (Piano, Flute, Strings, Trumpet, Synth, Robot, Bells, Bass) to change how your voice sounds. Hover to hear a quick preview.</span></div>
+    </div>
+
+    <h3>🎮 Game Modes</h3>
+    <div class="legend">
+      <div class="leg-item"><span class="leg-icon">🎯</span><span class="leg-txt"><b>Pitch Game</b> — match the note shown by singing until the bird lands on it and holds.</span></div>
+      <div class="leg-item"><span class="leg-icon">🥁</span><span class="leg-txt"><b>Beatbox</b> — make drum sounds with your mouth! The pads light up: 👢 kick ("buh"), 👏 snare ("ka"), 🐱 hi-hat ("ts").</span></div>
+      <div class="leg-item"><span class="leg-icon">🔁</span><span class="leg-txt"><b>Looper</b> — record a beat that repeats. ⏺ records, 🗑️ clears, 🎤 <b>Sing Along</b> lets you sing a tune over your beat. Use the metronome click, tempo slider, and 1/2/4 bars to set the length.</span></div>
+      <div class="leg-item"><span class="leg-icon">🎙️</span><span class="leg-txt"><b>Hum Studio</b> — a tape recorder for tunes. ⏺ Record then ⏹ Stop to save a hum; ➕ New starts another; ▶️ replays it on the instrument you picked; 🗑️ deletes it. Your hums are saved even after you close the page!</span></div>
+      <div class="leg-item"><span class="leg-icon">🎤🎤</span><span class="leg-txt"><b>Duet</b> — take turns! Listen to a short phrase, then sing it back. Two players, one mic.</span></div>
+    </div>
+
+    <h3>🏆 Extras</h3>
+    <div class="legend">
+      <div class="leg-item"><span class="leg-icon">🏆</span><span class="leg-txt"><b>Levels</b> — earn stars and unlock new challenges as you practice. Switch between 🌱 Explorer (ages 6–8) and 🚀 Maker (ages 9–11).</span></div>
+      <div class="leg-item"><span class="leg-icon">⚙️</span><span class="leg-txt"><b>Options</b> — set your 🎚️ voice range (Low/Middle/High), 🎯 difficulty, and turn 💬 captions on or off.</span></div>
+      <div class="leg-item"><span class="leg-icon">❓</span><span class="leg-txt"><b>Help</b> — this page!</span></div>
+    </div>
+
+    <p class="grownup">👋 <b>Grown-up tip:</b> When the browser asks, click <b>Allow</b> so Hum-a-Tune can use the microphone. Nothing is recorded or sent anywhere — everything stays on this device.</p>
+    <button class="btn help-close" id="helpCloseBtn">✅ Got it!</button>
+  </div>
   <div id="status" role="status" aria-live="polite"></div>
 </div>
 
@@ -1208,6 +1292,7 @@ function setLooper(on) {
   announce(on ? "🔁 Looper on" : "⏹️ Looper off");
   if (on) {
     if (game.on) document.getElementById("gameBtn").click(); // exclusive with pitch game
+    if (humStudio.on) setHumStudio(false);                   // exclusive with hum studio
     if (!beat.on) setBeatbox(true);                          // need mic hits to record
     ensureLoopEngine();
     if (!looper.grid.length) initLoopGrid();
@@ -1393,6 +1478,7 @@ function setDuet(on) {
     if (game.on) document.getElementById("gameBtn").click();  // exclusive with the pitch game
     if (beat.on) setBeatbox(false);                           // exclusive with beatbox
     if (looper.active) setLooper(false);                      // exclusive with the looper
+    if (humStudio.on) setHumStudio(false);                    // exclusive with hum studio
     duet.caller = 1; duet.round = 1; duet.scores = { 1: 0, 2: 0 };
     startDuetRound();
   } else {
@@ -1652,6 +1738,236 @@ document.getElementById("levelDoneBtn").addEventListener("click", () => {
 loadAchieveProgress();
 updateAchieveBadge();
 
+/* ============================================================
+   VOCA-HUMSTUDIO — tape-recorder-style hum-clip library
+   A pitch/melody mode (does NOT auto-enable beatbox). Recording
+   captures the live pitch stream into a NOTE SEQUENCE
+   (array of {midi, startMs, durMs}) using the same hold-to-confirm
+   debounce as the duet/landmark capture — NOT raw audio. On Stop
+   the clip auto-saves to a growing list (newest on top); each row
+   can Replay through the CURRENTLY selected instrument (so a kid
+   can switch sound and hear the same tune different) or Delete.
+   Clips persist across reload via localStorage (note arrays only).
+   ============================================================ */
+const humStudio = {
+  on: false, recording: false, replaying: false,
+  clips: [], nextNum: 1,
+  recStartMs: 0,
+  holdMidi: -1, holdFrames: 0, gapFrames: 0, open: null, notes: [],
+  playIdx: -1, replayTimer: null
+};
+const HUM_HOLD_NEEDED = 12;  // ~0.2s of a steady note before it's committed
+const HUM_GAP_RESET = 8;     // ~0.13s of silence closes the current note
+const HUM_KEY = "vocaHumClips";
+
+function saveHumClips() {
+  try {
+    localStorage.setItem(HUM_KEY, JSON.stringify({ clips: humStudio.clips, nextNum: humStudio.nextNum }));
+  } catch (e) { /* storage full / disabled — clips just won't persist */ }
+}
+function loadHumClips() {
+  try {
+    const raw = localStorage.getItem(HUM_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    if (data && Array.isArray(data.clips)) {
+      humStudio.clips = data.clips.filter((c) => c && Array.isArray(c.notes));
+      humStudio.nextNum = data.nextNum || (humStudio.clips.length + 1);
+    }
+  } catch (e) { /* corrupt entry — start fresh */ }
+}
+
+// Debounce the live pitch into a melody sequence while recording (mirrors the
+// duet note-hold debounce). One note object stays "open" and grows in duration
+// as long as its pitch persists; a new stable pitch or a silence gap closes it.
+function humCapture(midiFloat, voiced, nowMs) {
+  if (!humStudio.recording) return;
+  const rel = nowMs - humStudio.recStartMs;
+  if (voiced) {
+    const m = Math.round(midiFloat);
+    humStudio.gapFrames = 0;
+    if (m === humStudio.holdMidi) humStudio.holdFrames++;
+    else { humStudio.holdMidi = m; humStudio.holdFrames = 1; }
+    if (humStudio.holdFrames === HUM_HOLD_NEEDED && (!humStudio.open || humStudio.open.midi !== m)) {
+      humStudio.open = { midi: m, startMs: Math.round(rel), durMs: 0 };
+      humStudio.notes.push(humStudio.open);
+    }
+    if (humStudio.open && humStudio.open.midi === m) {
+      humStudio.open.durMs = Math.max(0, Math.round(rel - humStudio.open.startMs));
+    }
+  } else {
+    humStudio.holdMidi = -1; humStudio.holdFrames = 0;
+    if (++humStudio.gapFrames > HUM_GAP_RESET) humStudio.open = null;
+  }
+}
+
+function clipLength(clip) {
+  let end = 0;
+  for (const n of clip.notes) end = Math.max(end, n.startMs + n.durMs);
+  return end;
+}
+
+function startHumRecording() {
+  stopHumReplay();
+  humStudio.recording = true;
+  humStudio.recStartMs = performance.now();
+  humStudio.notes = []; humStudio.open = null;
+  humStudio.holdMidi = -1; humStudio.holdFrames = 0; humStudio.gapFrames = 0;
+  const btn = document.getElementById("humRecBtn");
+  btn.classList.add("rec-on"); btn.setAttribute("aria-pressed", "true");
+  btn.textContent = "⏹ Stop";
+  announce("🔴 Recording your hum — sing a tune!");
+}
+
+function stopHumRecording(silent) {
+  if (!humStudio.recording) return;
+  humStudio.recording = false;
+  const btn = document.getElementById("humRecBtn");
+  btn.classList.remove("rec-on"); btn.setAttribute("aria-pressed", "false");
+  btn.textContent = "⏺ Record";
+  if (voiceOn) { instruments[currentInst].triggerRelease(); voiceOn = false; smoothedFreq = 0; }
+  const notes = humStudio.notes.filter((n) => n.durMs >= 0);
+  if (!notes.length) {
+    if (!silent) announce("🤫 Nothing recorded — try humming a little louder!");
+    return;
+  }
+  const clip = { name: "Hum " + humStudio.nextNum, notes: notes };
+  clip.durMs = clipLength(clip);
+  humStudio.nextNum++;
+  humStudio.clips.unshift(clip);   // newest on top
+  saveHumClips();
+  renderHumClips();
+  if (!silent) announce("💾 Saved " + clip.name + " — " + notes.length + " notes");
+}
+
+function stopHumReplay() {
+  if (humStudio.replayTimer) { clearTimeout(humStudio.replayTimer); humStudio.replayTimer = null; }
+  if (humStudio.replaying) {
+    instruments[currentInst].triggerRelease();
+    humStudio.replaying = false;
+  }
+  humStudio.playIdx = -1;
+  renderHumClips();
+}
+
+// Replay a clip through the CURRENTLY selected instrument, using the same
+// triggerAttack / frequency.rampTo / triggerRelease driver contract as live
+// singing. Notes never overlap (only one is ever "open" while recording), so
+// scheduling attack/release at their absolute Tone times drives the mono synth
+// cleanly; frequency.rampTo glides between notes that touch for a legato feel.
+function replayHumClip(idx) {
+  const clip = humStudio.clips[idx];
+  if (!clip || !clip.notes.length || humStudio.recording) return;
+  stopHumReplay();
+  if (voiceOn) { instruments[currentInst].triggerRelease(); voiceOn = false; smoothedFreq = 0; }
+  const synth = instruments[currentInst];
+  humStudio.replaying = true;
+  humStudio.playIdx = idx;
+  renderHumClips();
+  announce("▶️ Playing " + clip.name);
+  const base = Tone.now() + 0.06;
+  let prevEnd = -1;
+  clip.notes.forEach((n) => {
+    const startT = base + n.startMs / 1000;
+    const dur = Math.max(0.14, n.durMs / 1000);
+    const freq = midiToFreq(n.midi);
+    // glide from the previous note if they butt up against each other, else retrigger
+    if (prevEnd >= 0 && startT - prevEnd < 0.04) {
+      synth.frequency.rampTo(freq, 0.03, startT);
+    } else {
+      synth.triggerAttack(freq, startT);
+    }
+    synth.triggerRelease(startT + dur);
+    Tone.Draw.schedule(() => { if (humStudio.replaying) caption("🔊 " + noteLabel(n.midi)); }, startT);
+    prevEnd = startT + dur;
+  });
+  const totalMs = clip.durMs + 400;
+  humStudio.replayTimer = setTimeout(() => {
+    humStudio.replaying = false; humStudio.playIdx = -1; humStudio.replayTimer = null;
+    renderHumClips();
+  }, totalMs);
+}
+
+function deleteHumClip(idx) {
+  const clip = humStudio.clips[idx];
+  if (!clip) return;
+  if (humStudio.playIdx === idx) stopHumReplay();
+  humStudio.clips.splice(idx, 1);
+  saveHumClips();
+  renderHumClips();
+  announce("🗑️ Deleted " + clip.name);
+}
+
+function renderHumClips() {
+  const wrap = document.getElementById("humClips");
+  const empty = document.getElementById("humEmpty");
+  wrap.innerHTML = "";
+  empty.style.display = humStudio.clips.length ? "none" : "";
+  humStudio.clips.forEach((clip, idx) => {
+    const secs = (clip.durMs / 1000).toFixed(1);
+    const row = document.createElement("div");
+    row.className = "hum-clip" + (humStudio.playIdx === idx ? " playing" : "");
+    row.setAttribute("role", "listitem");
+
+    const name = document.createElement("span");
+    name.className = "hc-name"; name.textContent = clip.name;
+
+    const len = document.createElement("span");
+    len.className = "hc-len";
+    len.textContent = secs + "s · " + clip.notes.length + (clip.notes.length === 1 ? " note" : " notes");
+
+    const play = document.createElement("button");
+    play.className = "btn hc-play"; play.textContent = "▶️";
+    play.title = "Replay " + clip.name;
+    play.setAttribute("aria-label", "Replay " + clip.name);
+    play.addEventListener("click", () => replayHumClip(idx));
+
+    const del = document.createElement("button");
+    del.className = "btn hc-del"; del.textContent = "🗑️";
+    del.title = "Delete " + clip.name;
+    del.setAttribute("aria-label", "Delete " + clip.name);
+    del.addEventListener("click", () => deleteHumClip(idx));
+
+    row.appendChild(name); row.appendChild(len); row.appendChild(play); row.appendChild(del);
+    wrap.appendChild(row);
+  });
+}
+
+function setHumStudio(on) {
+  humStudio.on = on;
+  const btn = document.getElementById("humBtn");
+  btn.classList.toggle("game-on", on);
+  btn.setAttribute("aria-pressed", on);
+  document.getElementById("humPanel").classList.toggle("on", on);
+  if (on) {
+    // mutually exclusive with the other modes (pitch/melody mode — no beatbox)
+    if (game.on) document.getElementById("gameBtn").click();
+    if (beat.on) setBeatbox(false);
+    if (looper.active) setLooper(false);
+    if (duet.on) setDuet(false);
+    renderHumClips();
+    announce("🎙️ Hum Studio open — press Record and hum a tune!");
+  } else {
+    if (humStudio.recording) stopHumRecording(true); // save whatever was captured
+    stopHumReplay();
+    if (voiceOn) { instruments[currentInst].triggerRelease(); voiceOn = false; smoothedFreq = 0; }
+    announce("🎙️ Hum Studio closed");
+  }
+}
+
+document.getElementById("humBtn").addEventListener("click", () => setHumStudio(!humStudio.on));
+document.getElementById("humRecBtn").addEventListener("click", () => {
+  if (humStudio.recording) stopHumRecording(false);
+  else startHumRecording();
+});
+document.getElementById("humNewBtn").addEventListener("click", () => {
+  if (humStudio.recording) stopHumRecording(false); // save the current take first
+  startHumRecording();                              // then re-arm for a new clip
+});
+
+loadHumClips();
+renderHumClips();
+
 // ---------- Main loop ----------
 const noteNameEl = document.getElementById("noteName");
 const freqLabelEl = document.getElementById("freqLabel");
@@ -1750,8 +2066,17 @@ function loop() {
     }
   }
 
-  // during phrase playback the synth is driven by playDuetPhrase(), not the live mic
-  if (!(duet.on && (duet.phase === "playback" || duet.phase === "round-end"))) {
+  // VOCA-HUMSTUDIO: while recording, capture the pitch stream as a note sequence
+  if (humStudio.on) humCapture(midiFloat, voiced, nowMs);
+
+  // Suppress the live mic→synth driver when another source owns it:
+  //  - duet phrase playback is driven by playDuetPhrase()
+  //  - in Hum Studio the voice only sounds WHILE recording (so idle humming
+  //    stays silent and doesn't fight clip replay)
+  const suppressDrive =
+    (duet.on && (duet.phase === "playback" || duet.phase === "round-end")) ||
+    (humStudio.on && !humStudio.recording);
+  if (!suppressDrive) {
     driveSynth(freq, voiced);
   }
   drawLadder(midiFloat, voiced);
@@ -1897,10 +2222,12 @@ document.querySelectorAll(".inst-btn").forEach((b) => {
 document.getElementById("beatBtn").addEventListener("click", () => {
   if (!beat.on && game.on) document.getElementById("gameBtn").click(); // beatbox and pitch game are exclusive
   if (!beat.on && duet.on) setDuet(false); // beatbox and duet are exclusive
+  if (!beat.on && humStudio.on) setHumStudio(false); // beatbox and hum studio are exclusive
   setBeatbox(!beat.on);
 });
 document.getElementById("gameBtn").addEventListener("click", (e) => {
   game.on = !game.on;
+  if (game.on && humStudio.on) setHumStudio(false); // pitch game and hum studio are exclusive
   if (game.on && beat.on) setBeatbox(false);
   if (game.on) setLooper(false); // pitch game stops the loop transport
   if (game.on && duet.on) setDuet(false); // pitch game and duet are exclusive
@@ -1964,6 +2291,19 @@ document.getElementById("settingsBtn").addEventListener("click", (e) => {
   e.currentTarget.classList.toggle("game-on", open);
   e.currentTarget.setAttribute("aria-pressed", open);
 });
+// VOCA-HELP: directions popover — same floating-panel toggle pattern as Options
+function setHelp(open) {
+  document.getElementById("helpPanel").classList.toggle("on", open);
+  const b = document.getElementById("helpBtn");
+  b.classList.toggle("game-on", open);
+  b.setAttribute("aria-pressed", open);
+  if (open) announce("Help — how to play"); else b.focus();
+}
+document.getElementById("helpBtn").addEventListener("click", () => {
+  setHelp(!document.getElementById("helpPanel").classList.contains("on"));
+});
+document.getElementById("helpCloseBtn").addEventListener("click", () => setHelp(false));
+
 function segSelect(seg, btn) { // single-choice button group: keep aria-pressed in sync
   seg.querySelectorAll(".btn").forEach((x) => x.setAttribute("aria-pressed", "false"));
   btn.setAttribute("aria-pressed", "true");
